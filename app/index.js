@@ -2,14 +2,13 @@ import document from "document";
 import * as messaging from "messaging";
 import { vibration } from "haptics";
 import { geolocation } from "geolocation";
-//import { locale } from "user-settings";
+import { locale } from "user-settings";
 
 console.log("App Started");
 
 var message_received = false;
 var displayInMinutes = false;
-/*var locale = locale.language;
-console.log(locale);*/
+var language = locale.language;
 
 var index = 1;
 var GPSoptions = {
@@ -45,7 +44,7 @@ let time_four__destination = document.getElementById("time_four-destination");
 let time_four__platform = document.getElementById("time_four-platform");
 let time_four__time = document.getElementById("time_four-time");
 
-name.text = "Lädt...";
+translateScreen("Lädt...", "", "Loading...", "");
 scrollview.height = 150;
 
 messaging.peerSocket.onopen = function() {
@@ -59,9 +58,8 @@ messaging.peerSocket.onerror = function(err) {
   console.log("Connection error: " + err.code + " - " + err.message);
 }
 
-function getStations() {
-  name.text = "Bitte warten...";
-  stationboard.text = "Station in deiner Nähe wird abgefragt...\n\nBitte habe etwas Geduld.";
+function getStations() {  
+  translateScreen("Bitte warten...", "Station in deiner Nähe wird abgefragt...\n\nBitte habe etwas Geduld.", "Please wait...", "Retrieving the timetable of a station near you. Please have patience.");
   scrollview.height = 150;
 }
 
@@ -70,9 +68,10 @@ messaging.peerSocket.onmessage = function(evt) {
   if (evt.data!=undefined) {
     message_received = true;
     if(evt.data.error){
-      if(evt.data.message=="no_location"){
-        name.text = "Kein Standort";
-        stationboard.text = "Möglicherweise ist dein Standort auf deinem Smartphone deaktiviert oder nicht empfangbar.";
+      if(evt.data.message=="no_location"){        
+        translateScreen("Kein Standort", "Möglicherweise ist dein Standort auf deinem Smartphone deaktiviert oder nicht empfangbar.",
+                        "No location", "Perhaps the GPS on your smartphone is deactivated.");
+        
         scrollview.height = 150;
       }
     }else{
@@ -195,14 +194,14 @@ messaging.peerSocket.onmessage = function(evt) {
       document.onkeypress = function(e) {
         if(e.key=="down"){
           if(index<=8){
-            name.text = "Nächste Station...";
+            translateScreen("Nächste Station...", "", "Next station...", "");
             
             index++;
             messaging.peerSocket.send({key:"changeStationDown"});
           }
         }else if(e.key=="up"){
           if(index>1){
-            name.text = "Vorherige Station...";
+            translateScreen("Vorherige Station...", "", "Previous station...", "");
             
             index--;
             messaging.peerSocket.send({key:"changeStationUp"});
@@ -210,6 +209,19 @@ messaging.peerSocket.onmessage = function(evt) {
         }
       }
     }
+  }
+}
+
+function translateScreen(name_text_de, content_text_de, name_text_en, content_text_en){
+  switch(language){
+    case 'de-DE':
+      name.text = name_text_de;
+      stationboard.text = content_text_de;
+      break;
+    default:
+      name.text = name_text_en;
+      stationboard.text = content_text_en;
+      break;
   }
 }
 
@@ -297,22 +309,16 @@ function RVBW(line){
         break;
     }
   
-  return {line_color:line_color, line_color_font:line_color_font};
+  return {line_color: line_color, line_color_font: line_color_font};
 }
 
-setInterval(function(){
+setTimeout(function(){
   if(!message_received){
-    /*switch(locale){
-      case 'en':
-        name.text = "No connection";
-        stationboard.text = "It seems that you don't have a connection to your phone.";
-        break;
-      case 'de':*/
-        name.text = "Keine Verbindung";
-        stationboard.text = "Zurzeit kann keine Verbindung mit dem Smartphone hergestellt werden. Probiere es in ein paar Minuten erneut.";
-       /* break;
-    }*/
+    translateScreen("Keine Verbindung", "Zurzeit kann keine Verbindung mit dem Smartphone hergestellt werden.",
+                    "No connection", "It seems that you don't have a connection to your phone.");
+    
     scrollview.height = 150;
+    vibration.start("nudge-max");
   }
 }, 10000);
 
