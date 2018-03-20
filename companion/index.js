@@ -21,6 +21,11 @@ function getStations(position) {
   latitude = position.coords.latitude;
   longitude = position.coords.longitude;
   
+  //@Test
+  /*var location_chosen = 1;
+  latitude = [47.471177, 47.378594][location_chosen];
+  longitude = [8.313994, 8.540089][location_chosen];*/
+  
   console.log("Location: "+latitude+", "+longitude);
   var url = "https://transport.opendata.ch/v1/locations?x="+ latitude +"&y="+ longitude;
   //console.log("Loading data from "+url);
