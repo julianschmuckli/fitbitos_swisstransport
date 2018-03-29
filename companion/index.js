@@ -191,10 +191,11 @@ settingsStorage.onchange = function(evt) {
 function loadResults(value){
   var autoValues = [];
  
-  var url = "http://transport.opendata.ch/v1/locations?query="+value;
+  var url = "https://transport.opendata.ch/v1/locations?query="+value;
   fetch(url).then(function (response) {
       response.text()
       .then(function(data) {
+        console.log("Data:"+data);
         var data = JSON.parse(data);
         for(var i=0;i<data["stations"].length;i++){
           if(data["stations"][i]["id"]!=null){
