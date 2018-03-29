@@ -5,5 +5,38 @@
     <!-- Additional Imports -->
     <link rel="import" href="/mnt/sysassets/widgets/baseview_widget.gui" />
     <link rel="import" href="/mnt/sysassets/widgets/scrollview_widget.gui" />
+    
+    <!--Panorama View-->
+    <link rel='import' href='/mnt/sysassets/widgets/baseview_widget.gui'/>
+    <link rel='import' href='/mnt/sysassets/widgets/panoramaview_widget.gui'/>
+    <link rel='import' href='/mnt/sysassets/widgets/pagination_dots.gui'/>
+    
+    
+    
+    <!--defs-->
+    <symbol id='pre_select' pointer-events="visible">
+      <use id='container' href='#panoramaview' overflow='hidden'>
+        
+        <use id="item1" href="#panoramaview-item">
+          <image id="background_image_1" class="pre_selector" href="location.png" pointer-events="visible" load="sync" />
+          <text x="50%-35" y="50%+110" fill="white" id="text_image_1">Lokal</text>
+        </use>        
+        <use id="item2" href="#panoramaview-item">
+          <image id="background_image_2" class="pre_selector" href="favourite.png" pointer-events="visible" load="sync" />
+          <text x="50%-60" y="50%+110" fill="white" id="text_image_2">Favoriten</text>
+        </use>
+
+        <!-- Have enough dots for your slides (extras are hidden) -->
+        <use id='pagination-dots' class='pagination' href='#pagination-widget' y='8'>
+          <use href='#pagination-dot'/>
+          <use href='#pagination-dot'/>
+          <use href='#pagination-dot'/>
+          <use href='#pagination-dot'/>
+          <use href='#pagination-dot'/>
+          <use href='#pagination-highlight-dot'/>
+        </use>
+        
+      </use>
+    </symbol>
   </defs>
 </svg>

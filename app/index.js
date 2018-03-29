@@ -4,11 +4,16 @@ import { vibration } from "haptics";
 import { geolocation } from "geolocation";
 import { locale } from "user-settings";
 
+import * as util from "../common/utils.js";
+import * as operator from "../common/operators.js";
+
 console.log("App Started");
 
 var message_received = false;
 var displayInMinutes = false;
 var language = locale.language;
+
+var current_menu = -1; //-1 -> Start pre_select; 0 -> Favourites; 1 -> Location
 
 var index = 1;
 var GPSoptions = {
@@ -19,6 +24,10 @@ var GPSoptions = {
 let name = document.getElementById("name");
 let stationboard = document.getElementById("stationboard");
 let scrollview = document.getElementById('scrollview');
+
+let time_changer = document.getElementById("time_changer");
+
+let pre_select = document.getElementById("pre_select");
 
 let time_one__background_number = document.getElementById("time_one-background_number");
 let time_one__number = document.getElementById("time_one-number");
@@ -61,7 +70,7 @@ messaging.peerSocket.onerror = function(err) {
 }
 
 function getStations() {  
-  translateScreen("Bitte warten...", "Station in deiner Nähe wird abgefragt...\n\nBitte habe etwas Geduld.", "Please wait...", "Retrieving the timetable of a station near you. Please have patience.");
+  translateScreen("Bitte warten...", "Station in deiner Nähe wird abgefragt...\n\nBitte habe etwas Geduld.", "Please wait...", "Retrieving the timetable of a stop near you.");
   scrollview.height = 150;
 }
 
@@ -69,6 +78,10 @@ var data;
 messaging.peerSocket.onmessage = function(evt) {
   if (evt.data!=undefined) {
     message_received = true;
+    if(displayInMinutes){ //Reset time changer
+       showTimeDisplay();
+    }
+       
     if(evt.data.error){
       if(evt.data.message=="no_location"){        
         translateScreen("Kein Standort", "Möglicherweise ist dein Standort auf deinem Smartphone deaktiviert oder nicht empfangbar.",
@@ -84,10 +97,11 @@ messaging.peerSocket.onmessage = function(evt) {
         data_name = evt.data.name;
       }
       name.text = data_name;
-      name.onclick = function(e){
+      time_changer.onclick = function(e){
         changeTimeDisplay();
       }
       
+      hideTimeTable();
       stationboard.style.display = "none";
 
       var data_result="";
@@ -123,7 +137,7 @@ messaging.peerSocket.onmessage = function(evt) {
       }
       
       /* Time 1 */
-      var colors = getColors(evt.data.operators[0], evt.data.number[0]);
+      var colors = operator.getColors(evt.data.operators[0], evt.data.number[0]);
       
       time_one__number.style.fill = colors.line_color_font;
       time_one__background_number.style.fill = colors.line_color;
@@ -131,7 +145,7 @@ messaging.peerSocket.onmessage = function(evt) {
       time_one__number.text = evt.data.number[0];
       
       time_one__destination.text = evt.data.to[0];
-      time_one__time.text = getTime(evt.data.departures[0])
+      time_one__time.text = util.getTime(evt.data.departures[0])
       if(evt.data.platforms[0]==null){
         time_one__platform.text = evt.data.categories[0];
       }else{
@@ -140,7 +154,7 @@ messaging.peerSocket.onmessage = function(evt) {
       
       /* Time 2 */
       
-      var colors = getColors(evt.data.operators[1], evt.data.number[1]);
+      var colors = operator.getColors(evt.data.operators[1], evt.data.number[1]);
       
       time_two__number.style.fill = colors.line_color_font;
       time_two__background_number.style.fill = colors.line_color;
@@ -148,7 +162,7 @@ messaging.peerSocket.onmessage = function(evt) {
       time_two__number.text = evt.data.number[1];
       
       time_two__destination.text = evt.data.to[1];
-      time_two__time.text = getTime(evt.data.departures[1])
+      time_two__time.text = util.getTime(evt.data.departures[1])
       if(evt.data.platforms[1]==null){
         time_two__platform.text = evt.data.categories[1];
       }else{
@@ -157,7 +171,7 @@ messaging.peerSocket.onmessage = function(evt) {
       
       /* Time 3 */
       
-      var colors = getColors(evt.data.operators[2], evt.data.number[2]);
+      var colors = operator.getColors(evt.data.operators[2], evt.data.number[2]);
       
       time_three__number.style.fill = colors.line_color_font;
       time_three__background_number.style.fill = colors.line_color;
@@ -165,7 +179,7 @@ messaging.peerSocket.onmessage = function(evt) {
       time_three__number.text = evt.data.number[2];
       
       time_three__destination.text = evt.data.to[2];
-      time_three__time.text = getTime(evt.data.departures[2])
+      time_three__time.text = util.getTime(evt.data.departures[2])
       if(evt.data.platforms[2]==null){
         time_three__platform.text = evt.data.categories[2];
       }else{
@@ -174,7 +188,7 @@ messaging.peerSocket.onmessage = function(evt) {
       
       /* Time 4 */
       
-      var colors = getColors(evt.data.operators[3], evt.data.number[3]);
+      var colors = operator.getColors(evt.data.operators[3], evt.data.number[3]);
       
       time_four__number.style.fill = colors.line_color_font;
       time_four__background_number.style.fill = colors.line_color;
@@ -182,7 +196,7 @@ messaging.peerSocket.onmessage = function(evt) {
       time_four__number.text = evt.data.number[3];
       
       time_four__destination.text = evt.data.to[3];
-      time_four__time.text = getTime(evt.data.departures[3]);
+      time_four__time.text = util.getTime(evt.data.departures[3]);
       if(evt.data.platforms[3]==null){
         time_four__platform.text = evt.data.categories[3];
       }else{
@@ -192,22 +206,31 @@ messaging.peerSocket.onmessage = function(evt) {
       scrollview.height = 400;
       vibration.start("confirmation-max");
       
+      if(evt.data.settings.minutesFirst=="true"){
+        showMinuteDisplay();
+      }
+      
       //Change station
       document.onkeypress = function(e) {
-        if(e.key=="down"){
+        if(e.key == "down"){
           if(index<=8){
-            translateScreen("Nächste Station...", "", "Next station...", "");
+            translateScreen("Nächste Station...", "", "Next stop...", "");
             
             index++;
-            messaging.peerSocket.send({key:"changeStationDown"});
+            messaging.peerSocket.send({key:"changeStationDown", menu: current_menu});
           }
-        }else if(e.key=="up"){
+        }else if(e.key == "up"){
           if(index>1){
-            translateScreen("Vorherige Station...", "", "Previous station...", "");
+            translateScreen("Vorherige Station...", "", "Previous stop...", "");
             
             index--;
-            messaging.peerSocket.send({key:"changeStationUp"});
+            messaging.peerSocket.send({key:"changeStationUp", menu: current_menu});
           }
+        }else if (e.key == "back" && current_menu != -1){
+          e.preventDefault();
+          pre_select.style.display = "inline";
+          current_menu = -1;
+          index = 1;
         }
       }
     }
@@ -215,9 +238,12 @@ messaging.peerSocket.onmessage = function(evt) {
 }
 
 function translateScreen(name_text_de, content_text_de, name_text_en, content_text_en){
+  hideTimeTable();
   switch(language){
+    case 'de_DE':
+    case 'de_de':
+    case 'de_De':
     case 'de-de':
-    case 'de-DE':
       name.text = name_text_de;
       stationboard.text = content_text_de;
       break;
@@ -229,151 +255,126 @@ function translateScreen(name_text_de, content_text_de, name_text_en, content_te
   }
 }
 
+function showMinuteDisplay(){
+  time_one__time.x = time_one__time.x - 10;
+  time_two__time.x = time_two__time.x - 10;
+  time_three__time.x = time_three__time.x - 10;
+  time_four__time.x = time_four__time.x - 10;
+
+  time_one__time.text = util.getMinutes(data.departures[0]);
+  time_two__time.text = util.getMinutes(data.departures[1]);
+  time_three__time.text = util.getMinutes(data.departures[2]);
+  time_four__time.text = util.getMinutes(data.departures[3]);
+  displayInMinutes = true;
+}
+
+function showTimeDisplay(){
+  time_one__time.x = distance_between_time_and_details;
+  time_two__time.x = distance_between_time_and_details;
+  time_three__time.x = distance_between_time_and_details;
+  time_four__time.x = distance_between_time_and_details;
+
+  time_one__time.text = util.getTime(data.departures[0]);
+  time_two__time.text = util.getTime(data.departures[1]);
+  time_three__time.text = util.getTime(data.departures[2]);
+  time_four__time.text = util.getTime(data.departures[3]);
+  displayInMinutes = false;
+}
+
 function changeTimeDisplay(){
   if(displayInMinutes){
-    time_one__time.x = time_one__time.x - 10;
-    time_two__time.x = time_two__time.x - 10;
-    time_three__time.x = time_three__time.x - 10;
-    time_four__time.x = time_four__time.x - 10;
-    
-    time_one__time.text = getMinutes(data.departures[0]);
-    time_two__time.text = getMinutes(data.departures[1]);
-    time_three__time.text = getMinutes(data.departures[2]);
-    time_four__time.text = getMinutes(data.departures[3]);
-    displayInMinutes = false;
+    showTimeDisplay();
   }else{
-    time_one__time.x = distance_between_time_and_details;
-    time_two__time.x = distance_between_time_and_details;
-    time_three__time.x = distance_between_time_and_details;
-    time_four__time.x = distance_between_time_and_details;
-    
-    time_one__time.text = getTime(data.departures[0]);
-    time_two__time.text = getTime(data.departures[1]);
-    time_three__time.text = getTime(data.departures[2]);
-    time_four__time.text = getTime(data.departures[3]);
-    displayInMinutes = true;
+    showMinuteDisplay();
   }
 }
 
-/* Colors for number */
-function RVBW(line){
-  var line_color, line_color_font;
-  switch (line) {
-    case '1':
-        line_color = "#E2001A";
-        line_color_font = "#FFFFFF";
-        break;
-    case '2':
-        line_color = "#0091D0";
-        line_color_font = "#FFFFFF";
-        break;
-    case '3':
-        line_color = "#FFD201";
-        line_color_font = "#000000";
-        break;
-    case '4':
-        line_color = "#059D3A";
-        line_color_font = "#FFFFFF";
-        break;
-    case '5':
-        line_color = "#DA277C";
-        line_color_font = "#FFFFFF";
-        break;
-    case '6':
-        line_color = "#1A171C";
-        line_color_font = "#FFFFFF";
-        break;
-    case '7':
-        line_color = "#153E90";
-        line_color_font = "#FFFFFF";
-        break;
-    case '8':
-        line_color = "#84502A";
-        line_color_font = "#FFFFFF";
-        break;
-    case '9':
-        line_color = "#EBA360";
-        line_color_font = "#FFFFFF";
-        break;
-    case '10':
-        line_color = "#6B1E7B";
-        line_color_font = "#FFFFFF";
-        break;
-    case '11':
-        line_color = "#B8C100";
-        line_color_font = "#FFFFFF";
-        break;
-    case '12':
-        line_color = "#88CABD";
-        line_color_font = "#FFFFFF";
-        break;
-    default:
-        line_color = "#000000";
-        line_color_font = "#F4E21D";
-        break;
+//Pre-select
+let pre_select_container = document.getElementById("pre_select").getElementById("container");
+//let pre_select_currentIndex = 0;
+
+translate(language, document.getElementById("text_image_1"),"Lokal","Local");
+translate(language, document.getElementById("text_image_2"),"Favoriten","Favourites");
+
+document.getElementById('background_image_1').addEventListener("click", function() {
+  pre_select.style.display = "none";
+  //Location
+  current_menu = 1;
+  try{
+    messaging.peerSocket.send({key:"loadLocation", menu: current_menu});
+  }catch(e){
+    translateScreen("Fehler","Es ist ein Fehler aufgetreten. Bitte überprüfe die Einstellungen in der Fitbit App oder versuche es in ein paar Minuten erneut.","Error","Please check the settings in the fitbit app or try it again in a few minutes.");
+  }
+
+  startNoInternetTimer();
+  getStations();
+});
+
+document.getElementById('background_image_2').addEventListener("click", function() {
+  pre_select.style.display = "none";
+  //Favourites
+  current_menu = 0;
+  try{
+    messaging.peerSocket.send({key:"loadFavourites", menu: current_menu});
+  }catch(e){
+    translateScreen("Fehler","Es ist ein Fehler aufgetreten. Bitte überprüfe die Einstellungen in der Fitbit App oder versuche es in ein paar Minuten erneut.","Error","Please check the settings in the fitbit app or try it again in a few minutes.");
+  }
+
+  startNoInternetTimer();
+  translateScreen("Lade deine Favoriten...","Falls du noch keine Favoriten definiert hast, kannst du diese in den Einstellungen festlegen.","Loading your favourites...","If you didn't have defined your favourites, you can do this via the settings in the app.");
+});
+
+function startNoInternetTimer(){
+  message_received=false;
+  setTimeout(function(){
+    if(!message_received){
+      translateScreen("Keine Verbindung", "Zurzeit kann keine Verbindung mit dem Smartphone hergestellt werden.",
+                      "No connection", "It seems that you don't have a connection to your phone.");
+
+      scrollview.height = 150;
+      vibration.start("nudge-max");
     }
+  }, 10000);
+}
+
+function hideTimeTable(){
+  stationboard.style.display = "inline";
   
-  return {line_color: line_color, line_color_font: line_color_font};
+  time_one__background_number.style.display = "none";
+  time_one__number.style.display = "none";
+  time_one__destination.style.display = "none";
+  time_one__platform.style.display = "none";
+  time_one__time.style.display = "none";
+
+  time_two__background_number.style.display = "none";
+  time_two__number.style.display = "none";
+  time_two__destination.style.display = "none";
+  time_two__platform.style.display = "none";
+  time_two__time.style.display = "none";
+
+  time_three__background_number.style.display = "none";
+  time_three__number.style.display = "none";
+  time_three__destination.style.display = "none";
+  time_three__platform.style.display = "none";
+  time_three__time.style.display = "none";
+
+  time_four__background_number.style.display = "none";
+  time_four__number.style.display = "none";
+  time_four__destination.style.display = "none";
+  time_four__platform.style.display = "none";
+  time_four__time.style.display = "none";
 }
 
-setTimeout(function(){
-  if(!message_received){
-    translateScreen("Keine Verbindung", "Zurzeit kann keine Verbindung mit dem Smartphone hergestellt werden.",
-                    "No connection", "It seems that you don't have a connection to your phone.");
-    
-    scrollview.height = 150;
-    vibration.start("nudge-max");
-  }
-}, 10000);
-
-function getTime(timestamp){
-  var date = new Date(timestamp*1000);
-  // Hours part from the timestamp
-  var hours = pad(date.getHours(),2);
-  // Minutes part from the timestamp
-  var minutes = "0" + date.getMinutes();
-  // Seconds part from the timestamp
-  var seconds = "0" + date.getSeconds();
-
-  // Will display time in 10:30:23 format
-  return hours + ":" + minutes.substr(-2);
-}
-
-function getMinutes(timestamp){
-  var current_time = new Date();
-  var time = new Date(timestamp*1000);
-  
-  var timeDiff = Math.abs(time.getTime() - current_time.getTime());
-  var diffMinutes = Math.ceil(timeDiff / (1000 * 60));
-  var diffHours = Math.ceil(timeDiff / (1000 * 60 * 60));
-  if(diffMinutes<60) {
-    return diffMinutes + " Min.";
-  }else{
-    return diffHours + " Std.";
-  }
-}
-
-function getColors(operator, number){
-  var colors;
-  switch(operator){
-    case 'RVBW':
-      colors = RVBW(number);
-      break;
-    case 'PAG':
-      colors = {line_color:"#FFCC00",line_color_font:"#000"};
+function translate(current_language, element, value_de, value_en){
+  switch(current_language){
+    case 'de_DE':
+    case 'de_de':
+    case 'de_De':
+    case 'de-de':
+      element.text = value_de;
       break;
     default:
-      console.log("----------");
-      console.log("Unknown operator: "+operator);
-      console.log("----------");
-      colors = {line_color:"#fff",line_color_font:"#000"};
+      element.text = value_en;
       break;
   }
-  return colors;
-}
-
-function pad(num, size) {
-    var s = num+"";
-    while (s.length < size) s = "0" + s;
-    return s;
 }
